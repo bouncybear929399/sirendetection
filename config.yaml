@@ -1,0 +1,156 @@
+﻿model_dir: check_point/
+data_dir: /root/shh/siren/siren-detection-lite-gru/dynamic_250903
+train_data_dir: /root/shh/siren/siren-detection-lite-gru/dynamic_250903/train
+test_data_dir: /root/shh/siren/siren-detection-lite-gru/dynamic_250903/test
+extra_data_dir: /root/shh/siren/siren-detection-lite-gru/data_add
+
+secs: 2
+sr: 16000
+n_fft: 1024
+win_len: 1024
+hop_len: 512
+n_mels: 32
+f_min: 150
+f_max: 6000
+power: 2.0
+feature_type: logmel
+n_mfcc: 32
+
+epochs: 200
+batch_size: 64
+workers: 16
+lr: 0.001
+weight_decay: 0.0001
+# 是否在每轮验证结束后保存该 epoch 的完整训练检查点。
+# 文件保存在当前实验目录的 epoch_checkpoints 子目录中。
+save_each_epoch: true
+cuda: true
+device_ids:
+  - 1
+dp: false
+random_seed: 42
+loss_name: dynamic_focal
+focal_initial_gamma: 1.5
+focal_max_weight: 5.0
+# 辅助二分类损失权重：区分 BKN 与其余四类警笛，直接强化警笛检出边界。
+# 该损失只参与训练，不增加模型参数，也不改变最终的 5 类 logits 输出。
+binary_aux_loss_weight: 0.35
+
+train_augment: true
+
+# 场景一：真实道路背景。警笛样本用于模拟不同距离，BKN 仅少量混合其他背景。
+road_noise_prob: 0.50
+background_mix_prob: 0.15
+# 已触发 BKN 混噪时，以 30% 概率改用另一条训练 BKN；不作用于警笛样本。
+# 总混噪概率仍由 background_mix_prob 控制，设此项为 0 可关闭新增混合。
+bkn_pair_mix_prob: 0.30
+# 主背景相对次背景的 RMS 能量比范围，单位 dB。
+bkn_pair_snr_min: 6.0
+bkn_pair_snr_max: 15.0
+road_noise_mode: synthetic
+real_noise_dir: /root/shh/siren/datasets/Emergency_Vehicle_Sirens_16k/Road Noises
+
+# 混噪时先选择距离档位，再在对应 SNR 范围内均匀采样。
+# 权重只表示已混噪样本内部的比例，总和不要求为 1。
+road_noise_near_snr_min: 10.0
+road_noise_near_snr_max: 20.0
+road_noise_near_weight: 0.45
+road_noise_mid_snr_min: 3.0
+road_noise_mid_snr_max: 10.0
+road_noise_mid_weight: 0.40
+road_noise_far_snr_min: -2.0
+road_noise_far_snr_max: 3.0
+road_noise_far_weight: 0.15
+
+# 独立低通增强：模拟远距离传播、车窗和车载麦克风造成的高频衰减。
+# 截止频率不低于 4500 Hz，避免破坏警笛主体及其关键谐波。
+lowpass_filter_prob: 0.20
+lowpass_cutoff_min: 4500.0
+lowpass_cutoff_max: 6000.0
+lowpass_q: 0.707
+
+# 平滑随机 EQ：模拟不同车辆、车窗和麦克风造成的宽带频响差异。
+# 三个频段分别随机选择中心频率，并施加轻微增益；低 Q 值可避免产生尖锐窄带失真。
+smooth_eq_prob: 0.20
+smooth_eq_gain_db_min: -2.0
+smooth_eq_gain_db_max: 2.0
+smooth_eq_q_min: 0.4
+smooth_eq_q_max: 0.8
+smooth_eq_low_freq_min: 200.0
+smooth_eq_low_freq_max: 700.0
+smooth_eq_mid_freq_min: 900.0
+smooth_eq_mid_freq_max: 2200.0
+smooth_eq_high_freq_min: 2800.0
+smooth_eq_high_freq_max: 5500.0
+
+# 场景二：车辆相对运动。仅对警笛类别使用，避免无意义地改变 BKN。
+doppler_prob: 0.20
+doppler_factor_min: 0.98
+doppler_factor_max: 1.02
+doppler_gain_min: 0.75
+doppler_gain_max: 1.15
+
+# 场景三：警笛进入或离开 2 秒检测窗口。
+time_shift_prob: 0.25
+time_shift_sec_max: 0.20
+
+# 场景四：被大型车辆、护栏或车身短时遮挡，使用平滑衰减而不是直接置零。
+occlusion_prob: 0.10
+occlusion_sec_min: 0.05
+occlusion_sec_max: 0.15
+occlusion_gain_min: 0.35
+occlusion_gain_max: 0.70
+
+# 场景五：车厢、车窗和道路反射形成的短混响。
+reverb_prob: 0.20
+reverb_taps_min: 2
+reverb_taps_max: 4
+reverb_delay_ms_min: 8.0
+reverb_delay_ms_max: 60.0
+reverb_reflection_gain_min: 0.08
+reverb_reflection_gain_max: 0.30
+reverb_wet_min: 0.15
+reverb_wet_max: 0.35
+
+# 场景六：车载麦克风频响、AGC/软削顶和量化差异。
+recording_chain_prob: 0.25
+recording_gain_min: 0.80
+recording_gain_max: 1.20
+recording_bandpass_prob: 0.60
+recording_highpass_min: 50.0
+recording_highpass_max: 180.0
+recording_lowpass_min: 4500.0
+recording_lowpass_max: 7600.0
+recording_quantize_prob: 0.40
+quant_bits_min: 12
+quant_bits_max: 16
+recording_soft_clip_prob: 0.30
+recording_soft_clip_drive_min: 1.0
+recording_soft_clip_drive_max: 2.0
+
+# 瞬态电流毛刺只保留少量，避免模型把大量人造尖峰当成道路常态。
+impulse_noise_prob: 0.05
+impulse_count_min: 1
+impulse_count_max: 3
+impulse_amp_min: 0.05
+impulse_amp_max: 0.25
+impulse_width_ms_max: 3.0
+
+# 特征域只遮挡 1 个 Mel 频带；当前总维度仅 24，不宜使用大范围 SpecAugment。
+freq_mask_prob: 0.10
+freq_mask_width_max: 1
+
+
+conv_channels: 24
+gru_hidden: 32
+gru_layers: 1
+dropout: 0.1
+num_blocks: 1
+num_class: 5
+
+siren_type:
+  BKN: 0
+  POL: 1
+  FIR: 2
+  AMB: 3
+  ENG: 4
